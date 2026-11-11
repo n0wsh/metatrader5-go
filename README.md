@@ -200,17 +200,6 @@ MT5_WEB_LIVE=1 MT5_LOGIN=... MT5_PASSWORD=... \
   go test ./webterm -run TestLiveHistory -v                    # login and history
 ```
 
-## Known limitations
-
-- Order submission, modification, cancellation, and position closing are not
-  implemented. The order types in this package describe returned history data.
-- A live XM server build 5660 positions response was rejected with
-  `positions reply has 12 trailing bytes`. A later empty-position response
-  passed. The differing response has not been captured or diagnosed; parsing
-  nonempty open positions remains a known compatibility concern.
-- Live tests require your own account credentials through environment variables.
-  They read account data and do not place trades. CI runs without credentials.
-
 ## License
 
 The original code in this repository is available under the [MIT License](LICENSE).
