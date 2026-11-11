@@ -216,14 +216,3 @@ MT5_WEB_LIVE=1 MT5_LOGIN=... MT5_PASSWORD=... \
 The original code in this repository is available under the [MIT License](LICENSE).
 Third-party dependencies retain their own licenses. This license does not grant
 rights to MetaQuotes software or services.
-
-## Caveats
-
-- **MetaQuotes' web terminal EULA forbids using the web terminal API for third
-  party applications** without their authorisation. This is a third party use,
-  so it needs a licence agreement with MetaQuotes or the broker before it goes
-  into a product.
-- The protocol is undocumented and can change with any terminal update.
-- One session belongs to one account on one broker server. Pulling many users'
-  history needs a pool of clients, one per account, and per broker endpoint
-  configuration.
