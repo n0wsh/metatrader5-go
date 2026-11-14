@@ -48,15 +48,17 @@ func main() {
 }
 
 func relay(c net.Conn, pipe string) {
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	p, err := mt5.DialPipeConn(context.Background(), pipe)
 	if err != nil {
 		log.Printf("%s: dial pipe: %v", c.RemoteAddr(), err)
 		return
 	}
-	defer p.Close()
-	done := make(chan struct{}, 2)
-	go func() { io.Copy(p, c); done <- struct{}{} }()
-	go func() { io.Copy(c, p); done <- struct{}{} }()
-	<-done
+	defer func() { _ = p.Close() }()
+	done := make(chan error, 2)
+	go func() { _, err := io.Copy(p, c); done <- err }()
+	go func() { _, err := io.Copy(c, p); done <- err }()
+	if err := <-done; err != nil {
+		log.Printf("%s: relay: %v", c.RemoteAddr(), err)
+	}
 }

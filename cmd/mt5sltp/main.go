@@ -32,7 +32,7 @@ func main() {
 	}
 }
 
-func run() error {
+func run() (runErr error) {
 	url := flag.String("url", webterm.DefaultURL, "web terminal endpoint")
 	login := flag.Uint64("login", 0, "account number")
 	host := flag.String("host", "", "login host (defaults to endpoint host)")
@@ -71,7 +71,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	if _, err := c.Login(ctx, webterm.LoginOptions{Login: *login, Password: os.Getenv("MT5_PASSWORD"), Host: *host}); err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func() { runErr = errors.Join(runErr, file.Close()) }()
 		writer = file
 	}
 	enc := json.NewEncoder(writer)

@@ -37,7 +37,7 @@ func TerminalPipeName(exePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer windows.CloseHandle(h)
+	defer func() { _ = windows.CloseHandle(h) }()
 	buf := make([]uint16, windows.MAX_LONG_PATH)
 	n, err := windows.GetFinalPathNameByHandle(h, &buf[0], uint32(len(buf)), 0)
 	if err != nil {
@@ -84,7 +84,8 @@ func DialTerminal(ctx context.Context, exePath string, opts TerminalOptions) (*C
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	go cmd.Wait()
+	// Reap the detached terminal; connection attempts below report startup failures.
+	go func() { _ = cmd.Wait() }()
 
 	ctx, cancel = context.WithTimeout(ctx, LaunchTimeout)
 	defer cancel()

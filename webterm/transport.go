@@ -119,7 +119,7 @@ func (c *Client) fail(err error) {
 	}
 	close(c.done)
 	c.mu.Unlock()
-	c.conn.Close()
+	_ = c.conn.Close()
 }
 
 // writeFrame encrypts and sends one command.

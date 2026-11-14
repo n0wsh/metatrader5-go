@@ -27,7 +27,7 @@ func TestLiveBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	t.Logf("server build %d", c.TerminalBuild())
 	if c.TerminalBuild() == 0 {
@@ -71,7 +71,7 @@ func TestLiveHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	if _, err := c.Login(ctx, LoginOptions{Login: number, Password: password, Host: os.Getenv("MT5_HOST")}); err != nil {
 		t.Fatal(err)

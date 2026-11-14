@@ -50,7 +50,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("connect: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	log.Printf("connected, terminal build %d", c.TerminalBuild())
 
 	loginCtx, cancelLogin := context.WithTimeout(ctx, mt5.DefaultLoginTimeout)
@@ -72,5 +72,7 @@ func main() {
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	enc.Encode(h)
+	if err := enc.Encode(h); err != nil {
+		log.Fatalf("encode output: %v", err)
+	}
 }

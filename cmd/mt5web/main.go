@@ -44,7 +44,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("connect: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	log.Printf("connected, server build %d", c.TerminalBuild())
 
 	if _, err := c.Login(ctx, webterm.LoginOptions{

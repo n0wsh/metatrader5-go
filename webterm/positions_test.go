@@ -34,7 +34,7 @@ func TestPositionsSnapshot(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		p.read()
+		_, _, _ = p.read()
 	})
 	positions, err := c.Positions(context.Background())
 	if err != nil {
@@ -100,7 +100,7 @@ func TestPositionsStatusError(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		p.read()
+		_, _, _ = p.read()
 	})
 	_, err := c.Positions(context.Background())
 	var status *StatusError

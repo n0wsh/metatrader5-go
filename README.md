@@ -261,6 +261,18 @@ MT5_WEB_LIVE=1 MT5_LOGIN=... MT5_PASSWORD=... \
   go test ./webterm -run TestLiveHistory -v                    # login and history
 ```
 
+## Linting
+
+CI runs golangci-lint v2.15.0 with the standard linters for both Go modules
+on Linux, plus the legacy module's Windows pipe and relay code.
+After installing that version, run:
+
+```sh
+golangci-lint run ./...
+(cd legacy/pipe && golangci-lint run --config ../../.golangci.yml ./...)
+(cd legacy/pipe && GOOS=windows golangci-lint run --config ../../.golangci.yml ./...)
+```
+
 ## License
 
 The original code in this repository is available under the [MIT License](LICENSE).

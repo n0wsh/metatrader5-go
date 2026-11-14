@@ -55,7 +55,10 @@ func (f *fakeTerminal) reply(cmd uint32, ret int32, payload ...[]byte) {
 	for _, p := range payload {
 		body = append(body, p...)
 	}
-	f.conn.Write(append(le32(uint32(len(body))), body...))
+	f.t.Helper()
+	if _, err := f.conn.Write(append(le32(uint32(len(body))), body...)); err != nil {
+		f.t.Errorf("reply: %v", err)
+	}
 }
 
 func le32(v uint32) []byte { return binary.LittleEndian.AppendUint32(nil, v) }
@@ -124,7 +127,7 @@ func newTestClient(t *testing.T) (*Client, *fakeTerminal) {
 	t.Helper()
 	cli, srv := net.Pipe()
 	f := &fakeTerminal{t: t, conn: srv}
-	t.Cleanup(func() { srv.Close() })
+	t.Cleanup(func() { _ = srv.Close() })
 
 	done := make(chan struct{})
 	go func() {
@@ -138,7 +141,7 @@ func newTestClient(t *testing.T) (*Client, *fakeTerminal) {
 		t.Fatal(err)
 	}
 	<-done
-	t.Cleanup(func() { c.Close() })
+	t.Cleanup(func() { _ = c.Close() })
 	return c, f
 }
 
@@ -336,5 +339,65 @@ func TestMatchGroup(t *testing.T) {
 		if got := matchGroup(tc.group, tc.sym); got != tc.want {
 			t.Errorf("matchGroup(%q, %q) = %v, want %v", tc.group, tc.sym, got, tc.want)
 		}
+	}
+}
+
+// Rejecting a deadline must abort before sending an unbounded request.
+type rejectingDeadlineConn struct {
+	net.Conn
+	failInitial bool
+	err         error
+	writing     chan struct{}
+}
+
+func (c *rejectingDeadlineConn) SetDeadline(at time.Time) error {
+	if c.failInitial || !at.IsZero() {
+		return c.err
+	}
+	return c.Conn.SetDeadline(at)
+}
+
+func (c *rejectingDeadlineConn) Write(p []byte) (int, error) {
+	if c.writing != nil {
+		close(c.writing)
+	}
+	return c.Conn.Write(p)
+}
+
+func TestCallDeadlineFailure(t *testing.T) {
+	client, server := net.Pipe()
+	t.Cleanup(func() { _ = client.Close(); _ = server.Close() })
+	want := errors.New("deadline rejected")
+	c := &Client{conn: &rejectingDeadlineConn{Conn: client, failInitial: true, err: want}}
+	if _, err := c.call(context.Background(), cmdHello, newRequest(cmdHello)); !errors.Is(err, want) {
+		t.Fatalf("deadline error = %v, want %v", err, want)
+	}
+}
+
+func TestCancellationClosesWhenDeadlineFails(t *testing.T) {
+	client, server := net.Pipe()
+	t.Cleanup(func() { _ = client.Close(); _ = server.Close() })
+	writing := make(chan struct{})
+	c := &Client{conn: &rejectingDeadlineConn{Conn: client, err: errors.New("deadline rejected"), writing: writing}}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		_, err := c.call(ctx, cmdHello, newRequest(cmdHello))
+		result <- err
+	}()
+	select {
+	case <-writing:
+	case <-time.After(time.Second):
+		t.Fatal("request did not start")
+	}
+	cancel()
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancellation error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("failed cancellation deadline left I/O blocked")
 	}
 }

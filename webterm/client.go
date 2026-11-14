@@ -134,12 +134,12 @@ func dial(ctx context.Context, opts Options, dialer *websocket.Dialer) (*Client,
 
 	key, err := initialKey()
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, err
 	}
 	cipher, err := newAES(key)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, err
 	}
 
@@ -156,7 +156,7 @@ func dial(ctx context.Context, opts Options, dialer *websocket.Dialer) (*Client,
 	go c.readLoop()
 
 	if err := c.bootstrap(ctx); err != nil {
-		c.Close()
+		_ = c.Close()
 		return nil, err
 	}
 	return c, nil

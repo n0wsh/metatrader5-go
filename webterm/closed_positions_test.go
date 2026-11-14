@@ -196,7 +196,7 @@ func TestHistoryPositionsFetchesOpeningDealsBeforeWindow(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		p.read()
+		_, _, _ = p.read()
 	})
 	positions, err := c.HistoryPositions(context.Background(), from, to)
 	if err != nil {
@@ -245,7 +245,7 @@ func TestHistoryPositionsFiltersFinalCloseTime(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		p.read()
+		_, _, _ = p.read()
 	})
 	got, err := c.HistoryPositions(context.Background(), time.Unix(25, 0), time.Unix(35, 0))
 	if err != nil {
@@ -279,7 +279,7 @@ func TestHistoryPositionsPropagatesStatusError(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		p.read()
+		_, _, _ = p.read()
 	})
 	_, err := c.HistoryPositions(context.Background(), time.Time{}, time.Time{})
 	var status *StatusError
@@ -338,7 +338,7 @@ func TestHistoryPositionsHonorsSubsecondBounds(t *testing.T) {
 					t.Error(err)
 					return
 				}
-				p.read()
+				_, _, _ = p.read()
 			})
 			positions, err := c.HistoryPositions(context.Background(), tt.from, tt.to)
 			if err != nil {

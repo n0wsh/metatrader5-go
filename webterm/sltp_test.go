@@ -155,7 +155,7 @@ func TestWatchSLTPWireChangesAndHeartbeat(t *testing.T) {
 				return
 			}
 		}
-		p.read()
+		_, _, _ = p.read()
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -202,7 +202,7 @@ func TestWatchSLTPStopsOnErrors(t *testing.T) {
 					t.Error(err)
 					return
 				}
-				p.read()
+				_, _, _ = p.read()
 			})
 			calls := 0
 			err := c.WatchSLTP(context.Background(), time.Second, func(time.Time, []SLTPObservation) error { calls++; return tc.handlerErr })
@@ -239,7 +239,7 @@ func TestOpenOrdersWire(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		p.read()
+		_, _, _ = p.read()
 	})
 	orders, err := c.OpenOrders(context.Background())
 	if err != nil || len(orders) != 1 || orders[0].Ticket != 777 {
@@ -266,7 +266,7 @@ func TestHistorySLTPWire(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		p.read()
+		_, _, _ = p.read()
 	})
 	got, err := c.HistorySLTP(context.Background(), time.Time{}, time.Time{})
 	if err != nil || len(got) != 1 || got[0].DealTicket != 123 || got[0].SL != 0 || got[0].TP != 1.2 || got[0].ObservedAt == 0 {

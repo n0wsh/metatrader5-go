@@ -69,9 +69,15 @@ func newTestTerminal(t *testing.T, timeout time.Duration, serve func(*terminalPe
 			t.Error(err)
 			return
 		}
-		defer conn.Close()
-		conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+		defer func() { _ = conn.Close() }()
+		if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			t.Error(err)
+			return
+		}
 		key, _ := initialKey()
 		cipher, _ := newAES(key)
 		p := &terminalPeer{conn: conn, cipher: cipher}
@@ -90,8 +96,12 @@ func newTestTerminal(t *testing.T, timeout time.Duration, serve func(*terminalPe
 		p.cipher, _ = newAES(sessionKey)
 		serve(p)
 	})}
-	go server.Serve(listener)
-	t.Cleanup(func() { server.Close(); clientConn.Close(); serverConn.Close() })
+	go func() {
+		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Errorf("test HTTP server: %v", err)
+		}
+	}()
+	t.Cleanup(func() { _ = server.Close(); _ = clientConn.Close(); _ = serverConn.Close() })
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	dialer := &websocket.Dialer{NetDialContext: func(context.Context, string, string) (net.Conn, error) { return clientConn, nil }}
@@ -100,7 +110,7 @@ func newTestTerminal(t *testing.T, timeout time.Duration, serve func(*terminalPe
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		c.Close()
+		_ = c.Close()
 		select {
 		case <-finished:
 		case <-time.After(6 * time.Second):
@@ -140,7 +150,7 @@ func TestConcurrentCommands(t *testing.T) {
 			}
 		}
 		// Keep the connection open until client cleanup.
-		p.read()
+		_, _, _ = p.read()
 	})
 	var wg sync.WaitGroup
 	start := make(chan struct{})
@@ -193,7 +203,7 @@ func TestQueuedCancellationKeepsConnection(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		p.read()
+		_, _, _ = p.read()
 	})
 	first := make(chan error, 1)
 	go func() { first <- c.Ping(context.Background()) }()
@@ -222,8 +232,11 @@ func TestCanceledContextSendsNothing(t *testing.T) {
 		if cmd != cmdPing {
 			t.Errorf("command = %d", cmd)
 		}
-		p.reply(cmd, 0, nil)
-		p.read()
+		if err := p.reply(cmd, 0, nil); err != nil {
+			t.Error(err)
+			return
+		}
+		_, _, _ = p.read()
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -285,14 +298,14 @@ func TestCloseWakesActiveAndQueuedCalls(t *testing.T) {
 			return
 		}
 		close(arrived)
-		p.read()
+		_, _, _ = p.read()
 	})
 	results := make(chan error, 2)
 	go func() { results <- c.Ping(context.Background()) }()
 	receive(t, arrived)
 	go func() { results <- c.Ping(context.Background()) }()
-	c.Close()
-	c.Close()
+	_ = c.Close()
+	_ = c.Close()
 	for i := 0; i < 2; i++ {
 		if err := receive(t, results); !errors.Is(err, ErrClosed) {
 			t.Fatalf("close: %v", err)
@@ -301,7 +314,7 @@ func TestCloseWakesActiveAndQueuedCalls(t *testing.T) {
 }
 
 func TestDisconnectWakesCaller(t *testing.T) {
-	c := newTestTerminal(t, time.Second, func(p *terminalPeer) { p.read() })
+	c := newTestTerminal(t, time.Second, func(p *terminalPeer) { _, _, _ = p.read() })
 	if err := c.Ping(context.Background()); err == nil {
 		t.Fatal("expected disconnect error")
 	}
@@ -381,7 +394,7 @@ func TestCancellationInterruptsBlockedWrite(t *testing.T) {
 		case <-time.After(4 * time.Second):
 			return
 		}
-		p.read()
+		_, _, _ = p.read()
 	})
 	receive(t, ready)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
@@ -405,7 +418,7 @@ func TestMalformedReplyClosesConnection(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		p.read()
+		_, _, _ = p.read()
 	})
 	if err := c.Ping(context.Background()); err == nil || !strings.Contains(err.Error(), "short frame") {
 		t.Fatalf("malformed reply: %v", err)

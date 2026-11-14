@@ -38,12 +38,12 @@ func NewClient(ctx context.Context, conn io.ReadWriteCloser) (*Client, error) {
 	req.wstr(helloClient)
 	body, err := c.call(ctx, cmdHello, req)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, err
 	}
 	c.build = body.u32()
 	if body.err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, body.err
 	}
 	return c, nil
@@ -212,12 +212,16 @@ func (c *Client) call(ctx context.Context, cmd uint32, req *encoder) (*decoder, 
 		return nil, err
 	}
 	if dl, ok := c.conn.(deadliner); ok {
-		if d, ok := ctx.Deadline(); ok {
-			dl.SetDeadline(d)
-		} else {
-			dl.SetDeadline(time.Time{})
+		deadline, _ := ctx.Deadline()
+		if err := dl.SetDeadline(deadline); err != nil {
+			return nil, fmt.Errorf("mt5: set deadline: %w", err)
 		}
-		stop := context.AfterFunc(ctx, func() { dl.SetDeadline(time.Unix(1, 0)) })
+		stop := context.AfterFunc(ctx, func() {
+			if err := dl.SetDeadline(time.Unix(1, 0)); err != nil {
+				// Closing the connection also interrupts I/O if its deadline fails.
+				_ = c.conn.Close()
+			}
+		})
 		defer stop()
 	}
 	if err := writeRequest(c.conn, req); err != nil {
@@ -239,7 +243,7 @@ func (c *Client) call(ctx context.Context, cmd uint32, req *encoder) (*decoder, 
 // ioErr closes the connection, since a partial exchange leaves the stream out
 // of sync.
 func (c *Client) ioErr(ctx context.Context, code int32, err error) error {
-	c.conn.Close()
+	_ = c.conn.Close()
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
