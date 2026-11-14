@@ -41,6 +41,63 @@ closed, err := c.HistoryPositions(ctx, from, to) // fully closed lifetimes
 MT5_PASSWORD=... go run ./cmd/mt5web -url wss://mt5-5.xm-bz.com/terminal -login 12345678 -days 90 -positions -history-positions
 ```
 
+## SL/TP observations
+
+`HistorySLTP(ctx, from, to)` returns all available SL/TP observations from deal
+and order history. Use `SLTPHistory(h)` for already loaded history. Each entry
+preserves its source, ticket, position identifier, symbol, levels, and record
+time. Orders without a position identifier are retained by order ticket.
+Matching order/deal values remain separate evidence records.
+
+These records are observations, not a complete modification log. A deal's
+levels describe its execution; a historical order's levels describe the returned
+order record. Order completion/setup times are labeled explicitly and do not
+establish when its SL/TP last changed. See MetaQuotes' [deal properties](https://www.mql5.com/en/docs/constants/tradingconstants/dealproperties)
+and [order properties](https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties).
+
+`WatchSLTP(ctx, interval, handler)` polls both open positions and pending orders.
+It emits a baseline when an entity first appears, followed by changes with
+previous and new levels, including removal of a level (zero). The handler runs
+on every successful snapshot, including empty batches as coverage heartbeats.
+Return a storage error from the handler to stop the recorder. `OpenOrders(ctx)`
+also exposes the pending-order snapshot independently.
+
+```go
+err := c.WatchSLTP(ctx, time.Second, func(at time.Time, observations []webterm.SLTPObservation) error {
+    return encoder.Encode(struct {
+        ObservedAt   int64                     `json:"observed_at"`
+        Observations []webterm.SLTPObservation `json:"observations"`
+    }{at.UnixMilli(), observations})
+})
+```
+
+Snapshot timestamps are local observation times, while record timestamps use
+broker time. Differences establish that values changed between observations;
+multiple changes between polls can be missed. Historical observations are not
+used as live baselines. Snapshot/parse failures stop recording and are returned,
+including unsupported position reply layouts. Restart after a gap establishes
+new baselines. Disappearance does not prove closure, and intermediate changes
+before recording or during disconnects cannot be recovered this way.
+
+For a custom polling loop, the zero-value `SLTPTracker` accepts complete position
+and pending-order snapshots through `Observe`; keep one tracker per account and
+call `Reset` after a recording gap.
+
+The `mt5sltp` CLI exports all available history by default. With `-watch`, it
+continues recording snapshot differences. Its JSON Lines output includes session,
+history, and snapshot records identified by account and endpoint. `-output`
+appends to a file and syncs each batch; a new file has owner-only permissions.
+Every invocation starts a new session and baseline; history exports may repeat
+across runs. Use source and ticket when reconciling repeated historical records.
+
+```sh
+# Historical observations only; -from/-to accept RFC 3339 timestamps.
+MT5_PASSWORD=... go run ./cmd/mt5sltp -url wss://mt5-5.xm-bz.com/terminal -login 12345678
+
+# History followed by ongoing recording; stop with Ctrl-C.
+MT5_PASSWORD=... go run ./cmd/mt5sltp -url wss://mt5-5.xm-bz.com/terminal -login 12345678 -watch 1s -output sltp.jsonl
+```
+
 ## Layout
 
 ```

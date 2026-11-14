@@ -39,3 +39,26 @@ Its `Gc.Le` history aggregator uses `ta` for both entry and exit execution
 prices. `Deal.PriceClose` is not used to calculate historical weighted exits.
 ClosedPositions follows position lifetimes and only emits final flat positions;
 this is deliberately stricter than the terminal's partially-closed history view.
+
+## XM command 4 zero extension
+
+A read-only live XMGlobal-MT5 5 observation on 2026-11-14 (terminal build 5660)
+returned three 344-byte positions, zero orders, and a 36-byte all-zero suffix
+after the order-count field. Decoding with a 356-byte stride corrupted the
+second/third position fields; the 344-byte stride retained valid fields.
+The private account response is not included in this repository.
+
+The broker's public `D8ROuLSQ.js` bundle (SHA-256
+`b222a4ef405bcbaac3d81f565c434d16f7959a7a092a8d07fbbe7641775c5bcb`)
+uses `mu` (344-byte schema), `yu` (field mapping), `bu`/`fu` (counted positions
+and offset), and `vu.getTradingOpened` (command 4 followed by orders via `Ad`).
+The decoder reads the two counted sections without asserting end-of-buffer.
+This was inspected statically as inert source; bundle code was not executed.
+REA analysis Evidence `ev_5e6c5c7ef1624f8695cf58960e5d28c5438ddb638d600eb703d7d1ec5f9f23fe`
+covered that selected chunk only, with incomplete semantic graph coverage;
+the exact decoder text was also inspected directly.
+
+The purpose of the suffix remains unknown. The parser accepts only an all-zero
+suffix of exactly 12 bytes per position; other trailing data remains an error.
+`TestPositionsXMZeroExtension` builds synthetic one- and two-position replies
+and verifies the suffix does not change record stride or hide nonzero data.

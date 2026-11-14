@@ -87,27 +87,69 @@ func newPosition(v []any) Position {
 // Command 4 returns a positions section followed by a pending-orders section.
 // Validate both counts against the available bytes before allocating slices.
 func parsePositions(body []byte) ([]Position, error) {
+	positions, _, err := parseOpenState(body)
+	return positions, err
+}
+
+// OpenOrders returns the pending orders in a fresh command 4 snapshot.
+func (c *Client) OpenOrders(ctx context.Context) ([]Order, error) {
+	_, orders, err := c.openState(ctx)
+	return orders, err
+}
+
+func (c *Client) openState(ctx context.Context) ([]Position, []Order, error) {
+	resp, err := c.call(ctx, cmdPositions, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	if resp.code != 0 {
+		return nil, nil, &StatusError{Command: cmdPositions, Code: resp.code}
+	}
+	return parseOpenState(resp.body)
+}
+
+func parseOpenState(body []byte) ([]Position, []Order, error) {
 	n, err := readRecordCount(body, 0, positionRecordSize)
 	if err != nil {
-		return nil, fmt.Errorf("webterm: positions: %w", err)
+		return nil, nil, fmt.Errorf("webterm: positions: %w", err)
 	}
 	pos := 4
 	positions := make([]Position, 0, n)
 	for i := 0; i < n; i++ {
 		values, err := parse(body, positionSchema, pos)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		positions = append(positions, newPosition(values))
 		pos += positionRecordSize
 	}
-	orders, err := readRecordCount(body, pos, orderRecordSize)
+	orderCount, err := readRecordCount(body, pos, orderRecordSize)
 	if err != nil {
-		return nil, fmt.Errorf("webterm: pending orders: %w", err)
+		return nil, nil, fmt.Errorf("webterm: pending orders: %w", err)
 	}
-	pos += 4 + orders*orderRecordSize
-	if pos != len(body) {
-		return nil, fmt.Errorf("webterm: positions reply has %d trailing bytes", len(body)-pos)
+	pos += 4
+	orders := make([]Order, 0, orderCount)
+	for i := 0; i < orderCount; i++ {
+		values, err := parse(body, orderSchema, pos)
+		if err != nil {
+			return nil, nil, err
+		}
+		orders = append(orders, newOrder(values))
+		pos += orderRecordSize
 	}
-	return positions, nil
+	// XM build 5660 appends 12 zero bytes per position after both sections.
+	// The browser decodes the two counted sections and leaves this suffix
+	// unread. Accept only that observed extension, not arbitrary trailing data.
+	tail := body[pos:]
+	if len(tail) != 0 {
+		if n == 0 || len(tail)%12 != 0 || len(tail)/12 != n {
+			return nil, nil, fmt.Errorf("webterm: positions reply has %d trailing bytes", len(tail))
+		}
+		for _, b := range tail {
+			if b != 0 {
+				return nil, nil, fmt.Errorf("webterm: positions reply has nonzero extension bytes")
+			}
+		}
+	}
+	return positions, orders, nil
 }

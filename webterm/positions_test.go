@@ -119,3 +119,30 @@ func TestHistoryRejectsCountsBeforeAllocation(t *testing.T) {
 		}
 	}
 }
+
+// The extension follows all positions and orders; it is not record padding.
+func TestPositionsXMZeroExtension(t *testing.T) {
+	fixture := positionFixture(t)
+	one := append(append([]byte(nil), fixture...), make([]byte, 12)...)
+	positions, orders, err := parseOpenState(one)
+	if err != nil || len(positions) != 1 || len(orders) != 1 || positions[0].Symbol != "EURUSD" {
+		t.Fatalf("single position extension: %+v, %v", positions, err)
+	}
+	two := make([]byte, 4)
+	binary.LittleEndian.PutUint32(two, 2)
+	two = append(two, fixture[4:348]...)
+	two = append(two, fixture[4:348]...)
+	two = append(two, fixture[348:]...)
+	two = append(two, make([]byte, 24)...)
+	positions, orders, err = parseOpenState(two)
+	if err != nil || len(positions) != 2 || len(orders) != 1 || positions[1].Symbol != "EURUSD" || positions[1].SL != 1.15 {
+		t.Fatalf("multiple positions extension: %+v, %v", positions, err)
+	}
+	bad := append([]byte(nil), one...)
+	bad[len(bad)-1] = 1
+	for _, body := range [][]byte{bad, one[:len(one)-1], append(one, 0), make([]byte, 20)} {
+		if _, _, err := parseOpenState(body); err == nil {
+			t.Fatal("unsupported suffix accepted")
+		}
+	}
+}

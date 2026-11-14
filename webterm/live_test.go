@@ -2,6 +2,7 @@ package webterm
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -97,6 +98,33 @@ func TestLiveHistory(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Logf("open positions: %d", len(positions))
+	})
+	t.Run("SLTPHistory", func(t *testing.T) {
+		observations, err := c.HistorySLTP(ctx, from, to)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("SL/TP historical observations: %d", len(observations))
+		for _, obs := range observations {
+			if obs.Kind != "history" || obs.Previous != nil || obs.ObservedAt == 0 {
+				t.Fatalf("invalid historical observation metadata: source=%s kind=%s", obs.Source, obs.Kind)
+			}
+		}
+	})
+	t.Run("SLTPSnapshot", func(t *testing.T) {
+		stop := errors.New("snapshot collected")
+		err := c.WatchSLTP(ctx, time.Second, func(_ time.Time, observations []SLTPObservation) error {
+			t.Logf("SL/TP live baselines: %d", len(observations))
+			for _, obs := range observations {
+				if obs.Kind != "baseline" || obs.Previous != nil {
+					t.Fatal("first snapshot must contain only baselines")
+				}
+			}
+			return stop
+		})
+		if !errors.Is(err, stop) {
+			t.Fatalf("SL/TP snapshot: %v", err)
+		}
 	})
 	t.Run("ClosedPositions", func(t *testing.T) {
 		positions, err := c.HistoryPositions(ctx, from, to)
