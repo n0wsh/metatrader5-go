@@ -19,10 +19,12 @@ Read the [API documentation on pkg.go.dev](https://pkg.go.dev/github.com/n0wsh/m
 
 ## Usage
 
+Replace `mt5.broker.example` with your broker's actual web terminal host.
+
 ```go
 import "github.com/n0wsh/metatrader5-go/webterm"
 
-c, err := webterm.Dial(ctx, webterm.Options{URL: "wss://mt5-5.xm-bz.com/terminal"})
+c, err := webterm.Dial(ctx, webterm.Options{URL: "wss://mt5.broker.example/terminal"})
 if err != nil { ... }
 defer c.Close()
 
@@ -38,7 +40,7 @@ closed, err := c.HistoryPositions(ctx, from, to) // fully closed lifetimes
 ```
 
 ```sh
-MT5_PASSWORD=... go run ./cmd/mt5web -url wss://mt5-5.xm-bz.com/terminal -login 12345678 -days 90 -positions -history-positions
+MT5_PASSWORD=... go run ./cmd/mt5web -url wss://mt5.broker.example/terminal -login 12345678 -days 90 -positions -history-positions
 ```
 
 ## SL/TP observations
@@ -92,10 +94,10 @@ across runs. Use source and ticket when reconciling repeated historical records.
 
 ```sh
 # Historical observations only; -from/-to accept RFC 3339 timestamps.
-MT5_PASSWORD=... go run ./cmd/mt5sltp -url wss://mt5-5.xm-bz.com/terminal -login 12345678
+MT5_PASSWORD=... go run ./cmd/mt5sltp -url wss://mt5.broker.example/terminal -login 12345678
 
 # History followed by ongoing recording; stop with Ctrl-C.
-MT5_PASSWORD=... go run ./cmd/mt5sltp -url wss://mt5-5.xm-bz.com/terminal -login 12345678 -watch 1s -output sltp.jsonl
+MT5_PASSWORD=... go run ./cmd/mt5sltp -url wss://mt5.broker.example/terminal -login 12345678 -watch 1s -output sltp.jsonl
 ```
 
 ## Layout
@@ -182,11 +184,11 @@ broker's terminal holds the broker connection, so this client never speaks the
 broker protocol itself.
 
 ```
-your Go service ──(wss)──► wss://mt5-5.xm-bz.com/terminal ──► terminal ──► broker
+your Go service ──(wss)──► wss://mt5.broker.example/terminal ──► terminal ──► broker
 ```
 
 The protocol was recovered from that bundle (build 6316) and verified against a
-live XM Global account.
+live broker account.
 
 ### Wire format (little-endian throughout)
 
@@ -234,14 +236,14 @@ Times are broker server time, so widen the window by a day and filter afterwards
 
 ## Finding a broker's endpoint
 
-Every broker runs its own web terminal, on its own host, and each trade server
-of a broker usually has its own host too. The landing page of the broker's web
-terminal contains the server to URL map, for example the XM one:
+Brokers that offer a web terminal may use different hosts for each trade server.
+Check your broker's web terminal landing page for its server-to-URL map.
+For example, a map might look like:
 
 ```json
 {"api-get-servers": [
-  {"serverName": "XMGlobal-MT5",   "serverURL": "https://mt5-1.xm-bz.com/terminal"},
-  {"serverName": "XMGlobal-MT5 5", "serverURL": "https://mt5-5.xm-bz.com/terminal"}
+  {"serverName": "Broker-MT5",   "serverURL": "https://mt5.broker.example/terminal"},
+  {"serverName": "Broker-MT5 2", "serverURL": "https://mt5-2.broker.example/terminal"}
 ]}
 ```
 
