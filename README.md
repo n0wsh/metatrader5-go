@@ -1,5 +1,7 @@
 # metatrader5 (Go)
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/n0wsh/metatrader5-go/webterm.svg)](https://pkg.go.dev/github.com/n0wsh/metatrader5-go/webterm)
+
 Go client for the **MetaTrader 5 web terminal** protocol: log in with an account
 (typically the investor / read-only password) and read open positions, deal/order history, and closed-position history.
 
@@ -12,6 +14,8 @@ Cross-compiles to `linux/amd64`, `linux/arm64`, `linux/386`, `linux/arm`,
 ```sh
 go get github.com/n0wsh/metatrader5-go/webterm
 ```
+
+Read the [API documentation on pkg.go.dev](https://pkg.go.dev/github.com/n0wsh/metatrader5-go/webterm).
 
 ## Usage
 
