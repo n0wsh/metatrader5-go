@@ -401,3 +401,23 @@ func TestCancellationClosesWhenDeadlineFails(t *testing.T) {
 		t.Fatal("failed cancellation deadline left I/O blocked")
 	}
 }
+
+// Model a context whose deadline passed before its timer published Err().
+type delayedDeadlineContext struct {
+	context.Context
+	deadline time.Time
+}
+
+func (c delayedDeadlineContext) Deadline() (time.Time, bool) { return c.deadline, true }
+
+func TestIOErrorBeforeContextDeadlineNotification(t *testing.T) {
+	for _, code := range []int32{ResInternalFailSend, ResInternalFailReceive} {
+		client, server := net.Pipe()
+		t.Cleanup(func() { _ = client.Close(); _ = server.Close() })
+		c := &Client{conn: client}
+		ctx := delayedDeadlineContext{Context: context.Background(), deadline: time.Now().Add(-time.Second)}
+		if err := c.ioErr(ctx, code, errors.New("socket deadline")); !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("I/O deadline error = %v", err)
+		}
+	}
+}

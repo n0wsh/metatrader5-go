@@ -247,6 +247,10 @@ func (c *Client) ioErr(ctx context.Context, code int32, err error) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+	// A socket deadline can fire before the context timer publishes its error.
+	if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
+		return context.DeadlineExceeded
+	}
 	e := resError(code)
 	return fmt.Errorf("%w: %v", e, err)
 }
