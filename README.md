@@ -1,6 +1,8 @@
 # metatrader5 (Go)
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/n0wsh/metatrader5-go/webterm.svg)](https://pkg.go.dev/github.com/n0wsh/metatrader5-go/webterm)
+[![Lint](https://github.com/n0wsh/metatrader5-go/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/n0wsh/metatrader5-go/actions/workflows/lint.yml)
+[![Testing](https://github.com/n0wsh/metatrader5-go/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/n0wsh/metatrader5-go/actions/workflows/ci.yml)
 
 Go client for the **MetaTrader 5 web terminal** protocol: log in with an account
 (typically the investor / read-only password) and read open positions, deal/order history, and closed-position history.
